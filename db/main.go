@@ -12,10 +12,10 @@ func CharDB() {
 	char := Character{
 		Name: "test",
 	}
-	initChar := saveCharacter(char, db)
+	initChar := SaveCharacter(char, db)
 	fmt.Println("Test Character: ", initChar.Name, " #", initChar.ID)
 
-	getChar := retrieveCharacterById(1, db)
+	getChar := RetrieveCharacterById(1, db)
 	fmt.Println("Test Character3: ", getChar.Name, " #", getChar.ID)
 	// ctx := context.Background()
 	// db.Debug().Where("id = ?", 1).First(ctx)
