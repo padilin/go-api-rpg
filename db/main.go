@@ -1,11 +1,10 @@
 package charDB
 
 import (
-	"context"
 	"fmt"
 )
 
-func charDB() {
+func CharDB() {
 	dsn := "test.db"
 
 	InitDB(dsn)
@@ -18,6 +17,6 @@ func charDB() {
 
 	getChar := retrieveCharacterById(1, db)
 	fmt.Println("Test Character3: ", getChar.Name, " #", getChar.ID)
-	ctx := context.Background()
-	db.Debug().Where("id = ?", 2).First(ctx)
+	// ctx := context.Background()
+	// db.Debug().Where("id = ?", 1).First(ctx)
 }
