@@ -40,7 +40,7 @@ type Class struct {
 	Stats       string      `gorm:"type:json" json:"stats"`      // Base stats modifiers stored as JSON
 	Equipment   string      `gorm:"type:json" json:"equipment"`  // Allowed equipment types stored as JSON
 	Attributes  string      `gorm:"type:json" json:"attributes"` // Flexible attributes stored as JSON
-	Characters  []Character `gorm:"foreignKey:ClassID" json:"characters,omitempty"`
+	CharacterID  Character  `gorm:"foreignKey:ClassID" json:"characters,omitempty"`
 }
 
 // Ability represents a special ability or skill
@@ -61,11 +61,11 @@ type Character struct {
 	Level      int       `gorm:"default:1" json:"level"`
 	Experience int64     `gorm:"default:0" json:"experience"`
 	ClassID    uint      `json:"class_id"`
-	Class      *Class    `gorm:"foreignKey:ClassID" json:"class,omitempty"`
+	Class      []Class    `gorm:"foreignKey:ClassID" json:"class,omitempty"`
 	Stats      Stats     `gorm:"foreignKey:CharacterID" json:"stats"`
 	Currencies []Currency   `gorm:"foreignKey:CharacterID" json:"currencies"`
 	Inventory  []Item    `gorm:"foreignKey:CharacterID" json:"inventory"`
-	Equipment  Equipment `gorm:"foreignKey:CharacterID" json:"equipment"`
+	Equipment  []Equipment `gorm:"foreignKey:CharacterID" json:"equipment"`
 	Status     string    `gorm:"default:active" json:"status"`
 	Attributes string    `gorm:"type:json" json:"attributes"`
 }
@@ -99,7 +99,7 @@ type Equipment struct {
 	Ring2       *Item `gorm:"foreignKey:EquipmentID" json:"ring2"`
 }
 
-func saveCharacter(character Character, db *gorm.DB) Character {
+func SaveCharacter(character Character, db *gorm.DB) Character {
 	ctx := context.Background()
 	result := gorm.WithResult()
 	err := gorm.G[Character](db, result).Create(ctx, &character)
@@ -109,7 +109,7 @@ func saveCharacter(character Character, db *gorm.DB) Character {
 	return character
 }
 
-func saveCharacterBulk(characters []Character, db *gorm.DB) []Character {
+func SaveCharacterBulk(characters []Character, db *gorm.DB) []Character {
 	result := db.Create(&characters)
 	if result.Error != nil {
 		log.Fatal("Failed to save character array: ", result.Error)
@@ -117,7 +117,7 @@ func saveCharacterBulk(characters []Character, db *gorm.DB) []Character {
 	return characters
 }
 
-func retrieveCharacterById(ID uint, db *gorm.DB) Character {
+func RetrieveCharacterById(ID uint, db *gorm.DB) Character {
 	var character Character
 	result := db.First(&character, ID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
