@@ -1,9 +1,7 @@
 package charDB
 
 import (
-	"context"
-	"errors"
-	"log"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -34,13 +32,13 @@ type Stats struct {
 // Class represents a character class with its abilities and attributes
 type Class struct {
 	gorm.Model
-	Name        string      `gorm:"not null;uniqueIndex" json:"name"`
-	Description string      `json:"description"`
-	Abilities   []Ability   `gorm:"foreignKey:ClassID" json:"abilities"`
-	Stats       string      `gorm:"type:json" json:"stats"`      // Base stats modifiers stored as JSON
-	Equipment   string      `gorm:"type:json" json:"equipment"`  // Allowed equipment types stored as JSON
-	Attributes  string      `gorm:"type:json" json:"attributes"` // Flexible attributes stored as JSON
-	CharacterID  Character  `gorm:"foreignKey:ClassID" json:"characters,omitempty"`
+	Name        string    `gorm:"not null;uniqueIndex" json:"name"`
+	Description string    `json:"description"`
+	Abilities   []Ability `gorm:"foreignKey:ClassID" json:"abilities"`
+	Stats       string    `gorm:"type:json" json:"stats"`      // Base stats modifiers stored as JSON
+	Equipment   string    `gorm:"type:json" json:"equipment"`  // Allowed equipment types stored as JSON
+	Attributes  string    `gorm:"type:json" json:"attributes"` // Flexible attributes stored as JSON
+	CharacterID uint      `json:"character_id,omitempty"`
 }
 
 // Ability represents a special ability or skill
@@ -57,17 +55,17 @@ type Ability struct {
 // Character represents the main character entity
 type Character struct {
 	gorm.Model
-	Name       string    `gorm:"not null" json:"name"`
-	Level      int       `gorm:"default:1" json:"level"`
-	Experience int64     `gorm:"default:0" json:"experience"`
-	ClassID    uint      `json:"class_id"`
-	Class      []Class    `gorm:"foreignKey:ClassID" json:"class,omitempty"`
-	Stats      Stats     `gorm:"foreignKey:CharacterID" json:"stats"`
-	Currencies []Currency   `gorm:"foreignKey:CharacterID" json:"currencies"`
-	Inventory  []Item    `gorm:"foreignKey:CharacterID" json:"inventory"`
+	Name       string      `gorm:"not null" json:"name"`
+	Level      int         `gorm:"default:1" json:"level"`
+	Experience int64       `gorm:"default:0" json:"experience"`
+	ClassID    uint        `json:"class_id"`
+	Class      []Class     `gorm:"foreignKey:CharacterID" json:"class,omitempty"`
+	Stats      Stats       `gorm:"foreignKey:CharacterID" json:"stats"`
+	Currencies []Currency  `gorm:"foreignKey:CharacterID" json:"currencies"`
+	Inventory  []Item      `gorm:"foreignKey:CharacterID" json:"inventory"`
 	Equipment  []Equipment `gorm:"foreignKey:CharacterID" json:"equipment"`
-	Status     string    `gorm:"default:active" json:"status"`
-	Attributes string    `gorm:"type:json" json:"attributes"`
+	Status     string      `gorm:"default:active" json:"status"`
+	Attributes string      `gorm:"type:json" json:"attributes"`
 }
 
 // Item represents an item in the game
@@ -99,29 +97,60 @@ type Equipment struct {
 	Ring2       *Item `gorm:"foreignKey:EquipmentID" json:"ring2"`
 }
 
-func SaveCharacter(character Character, db *gorm.DB) Character {
-	ctx := context.Background()
-	result := gorm.WithResult()
-	err := gorm.G[Character](db, result).Create(ctx, &character)
-	if err != nil {
-		log.Fatal("Failed to save character: ", err)
+func SaveCharacter(character Character, db *gorm.DB) (Character, error) {
+	if character.ID == 0 {
+		result := db.Create(&character)
+		if result.Error != nil {
+			return character, fmt.Errorf("failed to create character: %w", result.Error)
+		}
+	} else {
+		result := db.Save(&character)
+		if result.Error != nil {
+			return character, fmt.Errorf("failed to update character: %w", result.Error)
+		}
 	}
-	return character
+
+	// Reload with associations to return a fully populated struct
+	if err := db.Preload("Stats").
+		Preload("Class").
+		Preload("Currencies").
+		Preload("Inventory").
+		Preload("Equipment").
+		First(&character, character.ID).Error; err != nil {
+		return character, fmt.Errorf("failed to reload character: %w", err)
+	}
+
+	return character, nil
 }
 
-func SaveCharacterBulk(characters []Character, db *gorm.DB) []Character {
+func SaveCharacterBulk(characters []Character, db *gorm.DB) ([]Character, error) {
 	result := db.Create(&characters)
 	if result.Error != nil {
-		log.Fatal("Failed to save character array: ", result.Error)
+		return characters, fmt.Errorf("failed to save character array: %w", result.Error)
 	}
-	return characters
+
+	for i := range characters {
+		if err := db.Preload("Stats").
+			Preload("Class").
+			Preload("Currencies").
+			Preload("Inventory").
+			Preload("Equipment").
+			First(&characters[i], characters[i].ID).Error; err != nil {
+			return characters, fmt.Errorf("failed to reload character %d: %w", i, err)
+		}
+	}
+	return characters, nil
 }
 
-func RetrieveCharacterById(ID uint, db *gorm.DB) Character {
+func RetrieveCharacterById(ID uint, db *gorm.DB) (Character, error) {
 	var character Character
-	result := db.First(&character, ID)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		log.Fatal("Failed to find character with id: ", ID)
+	if err := db.Preload("Stats").
+		Preload("Class").
+		Preload("Currencies").
+		Preload("Inventory").
+		Preload("Equipment").
+		First(&character, ID).Error; err != nil {
+		return character, fmt.Errorf("failed to load character: %w", err)
 	}
-	return character
+	return character, nil
 }
